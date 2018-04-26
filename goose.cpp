@@ -13,9 +13,9 @@
 #define ADAM_BETA1 0.9
 #define ADAM_BETA2 0.999
 #define ADAM_EPSILON 1.0e-8
-#define BATCHSIZE 256
 #define PREDICTDAYS 5
 #define TARGETINDEX 3
+#define PRECISION 1.0e-2
 
 inline double square(double&& x) {
 	return x * x;
@@ -29,22 +29,20 @@ void randomInitialization(std::valarray<double>& targetVector) {
 }
 
 struct ArgParse {
+	double regularizer = 0.001;
 	double adamlr = 0.001;
+	int batchSize = 1024;
 	int dimension = 128;/* individual stock embedding */
 	int ompThread = 1;
 	int history = 4;
 	int featureLength = 5;
 	int epoch = 500;
-	std::string savepath = std::string("./");
+	std::string savePrefix = std::string("./goose_");
 	std::string inputFile;
+	std::string setting = "";
 	
 	ArgParse() {}
 	~ArgParse() {}
-	
-	bool wrongFormat(char* opt) {
-		printf("\twrong option argument: '%s'\n", opt);
-		return false;
-	}
 	
 	bool parseArgs(int argc, char** argv) {
 		if (argc < 2) {
@@ -52,49 +50,67 @@ struct ArgParse {
 			return false;
 		}
 		inputFile = std::string(argv[1]);
-		for (int i = 2; i < argc; ++i) {
-			if (std::string(argv[i]).compare("--omp") == 0) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+		if (parseOptions(argc, argv, 2)) {
+			// omp_set_num_threads(ompThread);
+			setting += "InputFile         : " + inputFile + "\n";
+			setting += "EmbeddingDimension: " + std::to_string(dimension) + "\n";
+			setting += "UseHistory        : " + std::to_string(history) + "\n";
+			setting += "FeatureLength     : " + std::to_string(featureLength) + "\n";
+			setting += "TrainingEpoches   : " + std::to_string(epoch) + "\n";
+			setting += "BatchSize         : " + std::to_string(batchSize) + "\n";
+			setting += "LearningRate      : " + std::to_string(adamlr) + "\n";
+			setting += "Regularizer       : " + std::to_string(regularizer) + "\n";
+			setting += "OpenmpThreads     : " + std::to_string(ompThread) + "\n";
+			setting += "SavePrefix        : " + savePrefix + "\n";
+			setting += "==================================================\n";
+			printf("%s", setting.c_str());
+			return true;
+		}
+		printf(">>> arguments error\n");
+		return false;
+	}
+	
+	bool parseOptions(int argc, char** argv, int optStart) {
+		for (int i = optStart; i < argc; ++i) {
+			if (std::string(argv[i]) == "--omp") {
+				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
 				ompThread = (temp < 1) ? ompThread : temp;
-			} else if ((std::string(argv[i]).compare("-l") == 0) or (std::string(argv[i]).compare("--adamlr") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+			} else if (std::string(argv[i]) == "-l") {
+				if (++i >= argc)	return false;
 				double temp = std::stod(std::string(argv[i]));
 				adamlr = (temp < 0.0) ? adamlr : temp;
-			} else if ((std::string(argv[i]).compare("-d") == 0) or (std::string(argv[i]).compare("--dimension") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+			} else if (std::string(argv[i]) == "-r") {
+				if (++i >= argc)	return false;
+				double temp = std::stod(std::string(argv[i]));
+				regularizer = (temp < 0.0) ? regularizer : temp;
+			} else if (std::string(argv[i]) == "-d") {
+				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
 				dimension = (temp < 1) ? dimension : temp;
-			} else if ((std::string(argv[i]).compare("-h") == 0) or (std::string(argv[i]).compare("--history") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+			} else if (std::string(argv[i]) == "-h") {
+				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
-				history = (temp < 0) ? history : temp;
-			} else if ((std::string(argv[i]).compare("-f") == 0) or (std::string(argv[i]).compare("--feature") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+				history = (temp < 1) ? history : temp;
+			} else if (std::string(argv[i]) == "-f") {
+				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
 				featureLength = (temp < 0) ? featureLength : temp;
-			} else if ((std::string(argv[i]).compare("-e") == 0) or (std::string(argv[i]).compare("--epoch") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
+			} else if (std::string(argv[i]) == "-e") {
+				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
 				epoch = (temp < 0) ? epoch : temp;
-			} else if ((std::string(argv[i]).compare("-s") == 0) or (std::string(argv[i]).compare("--savepath") == 0)) {
-				if (++i >= argc)	return wrongFormat(argv[i - 1]);
-				savepath = std::string(argv[i]);
+			} else if (std::string(argv[i]) == "-b") {
+				if (++i >= argc)	return false;
+				int temp = std::stoi(std::string(argv[i]));
+				batchSize = (temp < 64) ? batchSize : temp;
+			} else if (std::string(argv[i]) == "-s") {
+				if (++i >= argc)	return false;
+				savePrefix = std::string(argv[i]);
 			} else {
-				printf("\tunknown argument: %s\n", argv[i]);
 				return false;
 			}
 		}
-		// omp_set_num_threads(ompThread);
-		printf("InputFile         : %s\n", inputFile.c_str());
-		printf("EmbeddingDimension: %d\n", dimension);
-		printf("UseHistory        : %d\n", history);
-		printf("FeatureLength     : %d\n", featureLength);
-		printf("LearningRate      : %f\n", adamlr);
-		printf("TrainingEpoches   : %d\n", epoch);
-		printf("SaveTo            : %s\n", savepath.c_str());
-		printf("OpenmpThreads     : %d\n", ompThread);
-		printf("==================================================\n");
 		return true;
 	}
 	
@@ -104,9 +120,7 @@ const double scoreWeight[] = { 0.0, 0.1, 0.15, 0.2, 0.25, 0.3 };
 
 struct Stock {
 	static int idCount;
-	const int ID;
-	int learnEntries = 0;
-	std::vector<int> learnIndex;
+	const int ID;/* index of row in ElemEmbedding */
 	std::vector<std::valarray<double>> data;
 	std::vector<double> truePrice;
 	std::valarray<double> price1 = std::valarray<double>(0.0, args.featureLength);
@@ -132,39 +146,24 @@ struct Stock {
 		for (size_t i = data.size() - PREDICTDAYS - 1; i < data.size(); ++i)
 			truePrice.push_back(data[i][TARGETINDEX]);
 		data.resize(data.size() - PREDICTDAYS);
+		/* normalization */
 		for (std::valarray<double>& v: data)
 			v = (v - price1) / price2;
-		/* use [t - args.history, t - 1] to predict [t] */
-		int&& dataSizeInt = static_cast<int>(data.size());
-		learnEntries = dataSizeInt - args.history;
-		if (learnEntries < 1) {
-			learnEntries = 0;
-			printf("ID.%d does not have enough history data and cannot be learnt\n", ID);
-		} else {
-			learnIndex.reserve(learnEntries);
-			for (int i = args.history; i < dataSizeInt; ++i)
-				learnIndex.push_back(i);
-		}
 		return this;
-	}
-	
-	std::vector<int>& shuffledIndex() {
-		std::random_shuffle(learnIndex.begin(), learnIndex.end());
-		return learnIndex;
 	}
 	
 	double evaluate(FILE *sp, std::vector<double>& predPrice) {
 		/* rescale */
 		for (size_t i = 1; i <= PREDICTDAYS; ++i)
-			predPrice[i] = predPrice[i] * price2[TARGETINDEX] + price1[TARGETINDEX];
+			predPrice[i] = std::round((predPrice[i] * price2[TARGETINDEX] + price1[TARGETINDEX]) * 100.0) / 100.0;
 		
 		double totalScore = 0.0;
-		fprintf(sp, "\t%.2lf\t\t%.2lf\n", predPrice[0], truePrice[0]);
+		fprintf(sp, "p\t%.2lf\tt\t%.2lf\n", predPrice[0], truePrice[0]);
 		for (size_t i = 1; i <= PREDICTDAYS; ++i) {
 			double preddiff = predPrice[i] - predPrice[i - 1];
-			int  predchange = (preddiff == 0.0) ? 0 : ((preddiff > 0.0) ? +1 : -1);
+			int  predchange = (std::abs(preddiff) < PRECISION) ? 0 : ((preddiff > 0.0) ? +1 : -1);
 			double truediff = truePrice[i] - truePrice[i - 1];
-			int  truechange = (truediff == 0.0) ? 0 : ((truediff > 0.0) ? +1 : -1);
+			int  truechange = (std::abs(truediff) < PRECISION) ? 0 : ((truediff > 0.0) ? +1 : -1);
 			double&&  score = scoreWeight[i] * (((predchange == truechange) ? 0.5 : 0.0) +
 				((truePrice[i] - std::abs(predPrice[i] - truePrice[i])) / truePrice[i]) * 0.5);
 			totalScore += score;
@@ -177,7 +176,7 @@ struct Stock {
 int Stock::idCount = 0;
 
 struct ElemMatrix {
-	const size_t nodeCount;/* set to 1 as scala */
+	const size_t nodeCount;/* set to 1 as scalar */
 	const size_t dimension;
 	std::vector<bool> dirty;
 	std::vector<std::valarray<double>> gradients;
@@ -198,8 +197,8 @@ struct ElemMatrix {
 	}
 	
 	void setGradient(std::valarray<double>& g, int entry = 0) {
-		gradients[entry] += g;
 		dirty[entry] = true;
+		gradients[entry] += g;
 		return;
 	}
 	
@@ -207,17 +206,19 @@ struct ElemMatrix {
 	   the gradient of || Wx + b - y || ^ 2 is 2 * (Wx + b - y) * x.T
 	   note that argument g = 2 * (Wx + b - y) */
 	void setGradient(std::valarray<double>& g, std::valarray<double>& x) {
-		dirty.assign(nodeCount, true);
+		std::fill(dirty.begin(), dirty.end(), true);
 		std::transform(gradients.begin(), gradients.end(), std::begin(g), gradients.begin(),
 			[&x] (std::valarray<double>& a, double& gi) { return a + x * gi; });
 		return;
 	}
 	
 	void update(int batchSize) {/* gradient descent */
-		const double&& rho = args.adamlr * ((++adam_t > 40000) ? 1.0 :
+		const double&& rho = args.adamlr * ((++adam_t > 30000) ? 1.0 :
 			(std::sqrt(1.0 - std::pow(ADAM_BETA2, adam_t)) / (1.0 - std::pow(ADAM_BETA1, adam_t))));
 		for (size_t i = 0; i < nodeCount; ++i) {
-			if (not dirty[i])
+			if (args.regularizer > 0.0)
+				gradients[i] += 2.0 * args.regularizer * embedding[i];
+			else if (not dirty[i])
 				continue;
 			gradients[i] /= static_cast<double>(batchSize);
 			adamBias1[i] = ADAM_BETA1 * adamBias1[i] + (1.0 - ADAM_BETA1) * gradients[i];
@@ -225,7 +226,7 @@ struct ElemMatrix {
 			gradients[i] = 0.0;
 			embedding[i] -= rho * (adamBias1[i] / (std::sqrt(adamBias2[i]) + ADAM_EPSILON));
 		}
-		dirty.assign(nodeCount, false);
+		std::fill(dirty.begin(), dirty.end(), false);
 		return;
 	}
 	
@@ -248,7 +249,7 @@ std::valarray<double> computeWxpb(/* Wx + b */
 		std::valarray<double>& b) {
 	std::valarray<double> result(b.size());
 	std::transform(W.begin(), W.end(), std::begin(b), std::begin(result),
-		[&x] (const std::valarray<double>& w, const double& b0) { return (w * x).sum() + b0; });
+		[&x] (const std::valarray<double>& w, const double& bi) { return (w * x).sum() + bi; });
 	return result;
 }
 
@@ -266,10 +267,15 @@ int main(int argc, char** argv) {
 			stockMap[std::string(id)].add(date, std::valarray<double>({ d1, d2, d3, d4, d5 }));
 		fclose(fp);
 	}
-	std::vector<Stock*> stockList;
-	stockList.reserve(stockMap.size());
-	for (auto& p: stockMap)
-		stockList.push_back(p.second.init());
+	std::vector<std::pair<Stock*, int>> learningPair;
+	for (auto& p: stockMap) {
+		Stock* s = p.second.init();
+		/* use [t - args.history, t - 1] to predict [t] */;
+		for (int i = static_cast<int>(s->data.size()) - 1; i >= args.history; --i)
+			learningPair.push_back(std::make_pair(s, i));
+	}
+	learningPair.shrink_to_fit();
+	const int&& learningSize = static_cast<int>(learningPair.size());
 	
 	ElemMatrix stockFeature(Stock::idCount, args.dimension);
 	ElemMatrix weightMatrix(args.featureLength, args.history * args.featureLength + args.dimension);
@@ -280,56 +286,52 @@ int main(int argc, char** argv) {
 	std::vector<std::slice> historySlice(args.history + 1);
 	/* latest data starting with smaller index */
 	for (int i = 1; i <= args.history; ++i)
-		historySlice[i] = std::slice(args.dimension + i * args.featureLength, args.featureLength, 1);
+		historySlice[i] = std::slice(args.dimension + (i - 1) * args.featureLength, args.featureLength, 1);
 	
 	double totalTrainingTime = 0.0;
 	for (int e = 1; e <= args.epoch; ++e) {
+		std::random_shuffle(learningPair.begin(), learningPair.end());
 		const auto ttime1 = std::chrono::high_resolution_clock::now();
 		double epochLoss = 0.0;
 		
-		std::random_shuffle(stockList.begin(), stockList.end());
-		for (Stock* const currStock: stockList) {
-			const std::vector<int>& learnIndex = currStock->shuffledIndex();
+		// #pragma omp parallel for reduction(+ : epochLoss)
+		for (int z = 0; z < learningSize; ++z) {
+			Stock* currStock = learningPair[z].first;
+			const int l = learningPair[z].second;
 			
-			// #pragma omp parallel for reduction(+ : )
-			for (int z = 0; z < currStock->learnEntries; ++z) {
-				if (z % BATCHSIZE == 0) {
-					biasVector.update(BATCHSIZE);
-					weightMatrix.update(BATCHSIZE);
-					stockFeature.update(BATCHSIZE);
-				}
-				const int l = learnIndex[z];
-				// const int&& tid= omp_get_thread_num();
-				
-				std::valarray<double>& y = currStock->data[l];
-				std::valarray<double>  x(vectorDimension);
-				x[embeddingSlice] = stockFeature.embedding[currStock->ID];
-				for (int i = 1; i <= args.history; ++i)
-					x[historySlice[i]] = currStock->data[l - i];
-				
-				/* common gradient part */
-				std::valarray<double> Wxpbmy2 =
-					(computeWxpb(weightMatrix.embedding, x, biasVector.embedding[0]) - y) * 2.0;
-				epochLoss += square(Wxpbmy2.sum() / 2.0);
-				
-				biasVector.setGradient(Wxpbmy2);
-				weightMatrix.setGradient(Wxpbmy2, x);
-				std::valarray<double> featureGradient(0.0, args.dimension);
-				featureGradient = std::inner_product(
-					weightMatrix.embedding.begin(), weightMatrix.embedding.end(),
-					std::begin(Wxpbmy2), featureGradient,
-					[] (std::valarray<double> a, std::valarray<double> b) { return a + b; },
-					[&embeddingSlice] (std::valarray<double>& w, double& gi) {
-						return std::valarray<double>(w[embeddingSlice]) *gi;
-					});
-				stockFeature.setGradient(featureGradient, currStock->ID);
+			std::valarray<double>& y = currStock->data[l];
+			std::valarray<double>  x(vectorDimension);
+			x[embeddingSlice] = stockFeature.embedding[currStock->ID];
+			for (int i = 1; i <= args.history; ++i)
+				x[historySlice[i]] = currStock->data[l - i];
+			
+			/* common gradient part */
+			std::valarray<double> Wxpbmy2 =
+				(computeWxpb(weightMatrix.embedding, x, biasVector.embedding[0]) - y) * 2.0;
+			epochLoss += square(Wxpbmy2.sum() / 2.0);
+			
+			biasVector.setGradient(Wxpbmy2);
+			weightMatrix.setGradient(Wxpbmy2, x);
+			std::valarray<double> featureGradient(0.0, args.dimension);
+			featureGradient = std::inner_product(
+				weightMatrix.embedding.begin(), weightMatrix.embedding.end(),
+				std::begin(Wxpbmy2), featureGradient,
+				[] (std::valarray<double> a, std::valarray<double> b) { return a + b; },
+				[&embeddingSlice] (std::valarray<double>& w, double& gi) {
+					return std::valarray<double>(w[embeddingSlice]) *gi;
+				});
+			stockFeature.setGradient(featureGradient, currStock->ID);
+			if ((z + 1) % args.batchSize == 0) {
+				biasVector.update(args.batchSize);
+				weightMatrix.update(args.batchSize);
+				stockFeature.update(args.batchSize);
 			}
-			int&& finalBatchSize = currStock->learnEntries % BATCHSIZE;
-			if (finalBatchSize > 0) {
-				biasVector.update(finalBatchSize);
-				weightMatrix.update(finalBatchSize);
-				stockFeature.update(finalBatchSize);
-			}
+		}
+		const int&& finalBatchSize = learningSize % args.batchSize;
+		if (finalBatchSize > 0) {
+			biasVector.update(finalBatchSize);
+			weightMatrix.update(finalBatchSize);
+			stockFeature.update(finalBatchSize);
 		}
 		
 		const auto ttime2 = std::chrono::high_resolution_clock::now();
@@ -340,16 +342,17 @@ int main(int argc, char** argv) {
 	}
 	printf("\nTotalTrainingTime: %.3fs\n", totalTrainingTime);
 	
-	biasVector.dump(args.savepath + std::string("goose_bias.txt"));
-	weightMatrix.dump(args.savepath + std::string("goose_weight.txt"));
-	stockFeature.dump(args.savepath + std::string("goose_stock.txt"));
-	FILE *fp = fopen((args.savepath + std::string("goose_mapping.txt")).c_str(), "w");
+	biasVector.dump(  args.savePrefix + "bias.txt");
+	weightMatrix.dump(args.savePrefix + "weight.txt");
+	stockFeature.dump(args.savePrefix + "stock.txt");
+	FILE *fp = fopen((args.savePrefix + "mapping.txt").c_str(), "w");
 	for (auto& kv: stockMap)
 		fprintf(fp, "%s %d\n", kv.first.c_str(), kv.second.ID);
 	fclose(fp);
 	
 	/* predict */
-	FILE* sp = fopen((args.savepath + std::string("goose_scoring.txt")).c_str(), "w");
+	FILE* sp = fopen((args.savePrefix + "score.txt").c_str(), "w");
+	fprintf(sp, "%s", args.setting.c_str());
 	double totalScore = 0.0;
 	for (auto& kv: stockMap) {
 		fprintf(sp, "\n%s\n", kv.first.c_str());
@@ -369,7 +372,7 @@ int main(int argc, char** argv) {
 			std::valarray<double> yp = computeWxpb(weightMatrix.embedding, x, biasVector.embedding[0]);
 			historyInput.pop_back();
 			historyInput.push_front(yp);
-			predPrice.push_back(std::round(yp[TARGETINDEX] * 100.0) / 100.0);
+			predPrice.push_back(yp[TARGETINDEX]);
 		}
 		totalScore += currStock->evaluate(sp, predPrice);
 	}
