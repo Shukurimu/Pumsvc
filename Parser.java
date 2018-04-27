@@ -6,6 +6,8 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class Parser {
 	
@@ -14,6 +16,7 @@ public class Parser {
 			System.out.println("argument: InputFileName");
 			return;
 		}
+		final DateTimeFormatter dp = DateTimeFormatter.ofPattern("yyyyMMdd");
 		final HashMap<String, Integer> statistic = new HashMap<>();
 		final Pattern entryPattern = Pattern.compile("\"(.*?)\"");
 		final PrintWriter pw = new PrintWriter(args[0].replaceAll("\\..*$", ".txt"), "utf-8");
@@ -24,7 +27,10 @@ public class Parser {
 				entry.add(entryMatcher.group(1).replaceAll(",", ""));
 			String stock = entry.get(0) + " " + entry.get(2);
 			statistic.put(stock, statistic.getOrDefault(stock, 0) + 1);
-			entry.remove(2);/* Chinese name */
+			final LocalDate date = LocalDate.parse(entry.get(1), dp);
+			entry.set(1, Integer.toString(date.getYear()));
+			entry.set(2, Integer.toString(date.getMonthValue() % 12));
+			entry.add(3, Integer.toString(date.getDayOfWeek().getValue() % 7));
 			pw.println(String.join(" ", entry));
 		});
 		pw.close();
