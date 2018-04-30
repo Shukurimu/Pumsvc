@@ -4,8 +4,7 @@ import datetime
 import csv
 from collections import defaultdict
 from copy import deepcopy
-from keras.layers import GRUCell, Dense, Activation
-from keras.models import Sequential
+from keras.layers import GRUCell, Dense, Activation, Input
 from keras import optimizers
 from keras import losses
 '''
@@ -113,11 +112,11 @@ if __name__ == '__main__':
     adjustStock, adjustCoefs = preprocess(fundAfter)
     feature, label = produce_pair( adjustStock)
 
-    model = Sequential([
-        GRUCell(20, input_shape=(15*5,)),
-        Dense(1, activation='relu'),
-        Activation('sigmoid')
-    ])
+    inputs = Input(shape=(15*5,))
+    x = GRUCell(64, activation='relu')(inputs)
+    predictions = Dense(1, activation='sigmoid')(x)
+
+    model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='rmsprop',
               loss='mean_squared_error',
               metrics=['accuracy'])
