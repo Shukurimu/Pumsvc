@@ -1,14 +1,20 @@
-import tensorflow as tf
+#import tensorflow as tf
 import numpy as np
 import datetime
 import csv
 from collections import defaultdict
-
+from copy import deepcopy
+from keras.layers import GRUCell, Dense, Activation
+from keras.models import Sequential
+from keras import optimizers
+from keras import losses
+'''
 class RMSProp():
     def __init__():
         self.b
         self.a
     def fun(x):
+        pass
 
 class Sigmoid():
     def fun(x):
@@ -24,12 +30,12 @@ class Tanh():
         expNegX = np.exp(-x)
         return (expX - expNegX) / (expX + expNegX)
     def derFun(x):
-        funValue = fun(x):
+        funValue = fun(x)
         return 1 - funValue ** 2
 
 class GRU():
-    '''variable as same as https://colah.github.io/posts/2015-08-Understanding-LSTMs/'''
-    def __init__( inputDim, outputDim, activeFun = Sigmoid(), activeFun2 = Tanh(), updateFun = ):
+    #variable as same as https://colah.github.io/posts/2015-08-Understanding-LSTMs/
+    def __init__( inputDim, outputDim, activeFun = Sigmoid(), activeFun2 = Tanh(), updateFun = RMSProp()):
         low, high = -0.05, 0.05
         totalDim = inputDim + outputDim
         self.weightR = np.random.uniform(low, high, (outputDim, totalDim))
@@ -38,9 +44,10 @@ class GRU():
         self.h = np.zeros((outputDim))
         self.activeFun = activeFun
         self.activeFun2 = activeFun2
+        self.updateFun = RMSProp()
 
     def forward( x):
-        a = np.hstack( self.h, x)
+        self.a = np.hstack( self.h, x)
         r = self.activeFun.fun(self.weightR.dot(a))
         z = self.activeFun.fun(self.weightZ.dot(a))
         hLoss = self.activeFun2.fun(self.weight.dot(a))
@@ -51,7 +58,9 @@ class GRU():
         if self.hNew is None:
             perror("error: Not Forward")
         diff = hTrue - self.hNew
-
+        self.h = self.hNew
+        del self.hNew 
+'''
 
 def parse_csv(filePath):
     temDict = defaultdict( lambda:defaultdict(lambda:list))
@@ -69,7 +78,7 @@ def parse_csv(filePath):
     return temDict
 
 def preprocess( stockDict):
-    tmpStock = defaultdict( lambda:defaultdict(lambda:list)), 
+    tmpStock = deepcopy(stockDict) 
     tmpCoef = {}
     for id, dateData in stockDict.items():
         feature = np.array( list(dateData.values()))
@@ -85,6 +94,14 @@ def restore_process( predDict, adjustCoefs):
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
     return predDict
 
+def produce_pair(data, days = 15):
+    tail = 10
+    data = data.values()
+    feature, label = [], []
+    for i in range( len(data)-days-tail-1):
+        feature.append( data[i:i+days].reshape(-1))
+        label.append( data[i+days])
+    return feature, label
 
 #fundBefore = parse_csv("TBrain_Round2_DataSet_20180331/tetfp.csv")
 #stockBefore = parse_csv("TBrain_Round2_DataSet_20180331/tsharep.csv")
@@ -94,4 +111,14 @@ if __name__ == '__main__':
     trainDim = 20
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
-    
+    feature, label = produce_pair( adjustStock)
+
+    model = Sequential([
+        GRUCell(20, input_shape=(15*5,)),
+        Dense(1, activation='relu'),
+        Activation('sigmoid')
+    ])
+    model.compile(optimizer='rmsprop',
+              loss='mean_squared_error',
+              metrics=['accuracy'])
+    model.fit( feature, label, epochs=10, batch_size=30)
