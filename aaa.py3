@@ -120,7 +120,6 @@ if __name__ == '__main__':
 
     model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='rmsprop',
-              loss='mean_absolute_error',
-              metrics=['accuracy'])
+              loss='mean_absolute_error')
     model.fit( feature, label, epochs=300, batch_size=30)
     model.save("inin.keras")
