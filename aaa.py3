@@ -94,7 +94,7 @@ def restore_process( predDict, adjustCoefs):
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
     return predDict
 
-def produce_pair( stockDict, days = 15):
+def produce_pair( stockDict, days = 30):
     tail = 10
     feature, label = [], []
     for id, dateData in stockDict.items():
@@ -114,12 +114,13 @@ if __name__ == '__main__':
     adjustStock, adjustCoefs = preprocess(fundAfter)
     feature, label = produce_pair(adjustStock)
     print(len(feature), " ", feature[0].shape)
-    inputs = Input(shape=(15, 5))
+    inputs = Input(shape=(30, 5))
     x = GRU(64, activation='relu')(inputs)
-    predictions = Dense(5, activation='sigmoid')(x)
+    predictions = Dense(5, activation='linear')(x)
 
     model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='rmsprop',
-              loss='mean_squared_error',
+              loss='mean_absolute_error',
               metrics=['accuracy'])
-    model.fit( feature, label, epochs=10, batch_size=30)
+    model.fit( feature, label, epochs=300, batch_size=30)
+    model.save("inin.keras")
