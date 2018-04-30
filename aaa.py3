@@ -4,7 +4,8 @@ import datetime
 import csv
 from collections import defaultdict
 from copy import deepcopy
-from keras.layers import GRUCell, Dense, Activation, Input
+from keras.models import Model
+from keras.layers import GRU, Dense, Activation, Input
 from keras import optimizers
 from keras import losses
 '''
@@ -93,14 +94,15 @@ def restore_process( predDict, adjustCoefs):
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
     return predDict
 
-def produce_pair(data, days = 15):
+def produce_pair( stockDict, days = 15):
     tail = 10
-    data = data.values()
     feature, label = [], []
-    for i in range( len(data)-days-tail-1):
-        feature.append( data[i:i+days].reshape(-1))
-        label.append( data[i+days])
-    return feature, label
+    for id, dateData in stockDict.items():
+        data = np.vstack(dateData.values())
+        for i in range( data.shape[0]-days-tail-1):
+            feature.append( data[i:i+days])
+            label.append( data[i+days])
+    return np.array(feature), np.array(label)
 
 #fundBefore = parse_csv("TBrain_Round2_DataSet_20180331/tetfp.csv")
 #stockBefore = parse_csv("TBrain_Round2_DataSet_20180331/tsharep.csv")
@@ -110,11 +112,11 @@ if __name__ == '__main__':
     trainDim = 20
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
-    feature, label = produce_pair( adjustStock)
-
-    inputs = Input(shape=(15*5,))
-    x = GRUCell(64, activation='relu')(inputs)
-    predictions = Dense(1, activation='sigmoid')(x)
+    feature, label = produce_pair(adjustStock)
+    print(len(feature), " ", feature[0].shape)
+    inputs = Input(shape=(15, 5))
+    x = GRU(64, activation='relu')(inputs)
+    predictions = Dense(5, activation='sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='rmsprop',
