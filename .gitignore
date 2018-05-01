@@ -39,6 +39,6 @@
 *.csv
 *.xlsx
 
-*.keras
+*.h5
 .vscode
 # End of https://www.gitignore.io/api/c++

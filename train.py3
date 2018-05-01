@@ -89,7 +89,7 @@ def preprocess( stockDict):
         tmpCoef[id] = (means, stds)
     return tmpStock, tmpCoef
 
-def restore_process( predDict, adjustCoefs):
+def restore_preprocess( predDict, adjustCoefs):
     for id, predData in predDict.items():
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
     return predDict
@@ -109,7 +109,6 @@ def produce_pair( stockDict, days = 30):
 #stockAfter = parse_csv("TBrain_Round2_DataSet_20180331/tasharep.csv")
 
 if __name__ == '__main__':
-    trainDim = 20
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
     feature, label = produce_pair(adjustStock)
@@ -122,4 +121,4 @@ if __name__ == '__main__':
     model.compile(optimizer='rmsprop',
               loss='mean_absolute_error')
     model.fit( feature, label, epochs=300, batch_size=30)
-    model.save("inin.keras")
+    model.save("inin.h5")
