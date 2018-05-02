@@ -94,14 +94,14 @@ def restore_preprocess( predDict, adjustCoefs):
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
     return predDict
 
-def produce_pair( stockDict, days = 30):
+def produce_pair( stockDict, postpone, days = 30):
     tail = 10
     feature, label = [], []
     for id, dateData in stockDict.items():
         data = np.vstack(dateData.values())
         for i in range( data.shape[0]-days-tail-1):
             feature.append( data[i:i+days])
-            label.append( data[i+days])
+            label.append( data[i+days+postpone])
     return np.array(feature), np.array(label)
 
 #fundBefore = parse_csv("TBrain_Round2_DataSet_20180331/tetfp.csv")
@@ -111,14 +111,16 @@ def produce_pair( stockDict, days = 30):
 if __name__ == '__main__':
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
-    feature, label = produce_pair(adjustStock)
-    print(len(feature), " ", feature[0].shape)
-    inputs = Input(shape=(30, 5))
-    x = GRU(64, activation='relu')(inputs)
-    predictions = Dense(5, activation='linear')(x)
 
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='rmsprop',
-              loss='mean_absolute_error')
-    model.fit( feature, label, epochs=300, batch_size=30)
-    model.save("inin.h5")
+    for i in range(3, 5):
+        feature, label = produce_pair(adjustStock, i)
+        #build model
+        inputs = Input(shape=(30, 5))
+        x = GRU(64, activation='relu')(inputs)
+        predictions = Dense(5, activation='linear')(x)
+
+        model = Model(inputs=inputs, outputs=predictions)
+        model.compile(optimizer='rmsprop',
+                loss='mean_absolute_error')
+        model.fit( feature, label, epochs=300, batch_size=32)
+        model.save("inin%d.h5"%(i))
