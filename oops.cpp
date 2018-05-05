@@ -19,7 +19,6 @@
 #include <omp.h>
 #else
 inline int omp_get_thread_num() { return 0; }
-inline void omp_set_num_threads(int n) { return; }
 #endif
 typedef std::valarray<double> Vec;
 typedef std::vector<Vec> Mat;
@@ -36,17 +35,17 @@ void randomInitialization(Vec& target) {
 }
 
 struct ArgParse {
-	double regularizer = 0.001;
+	double regularizer = 0.001;/* L2 regularization */
 	double adamlr = 0.001;
-	int batchSize = 1024;
 	int dimension = 128;/* individual stock embedding */
+	int batchSize = 32;
 	int ompThread = 1;
 	int history = 60;/* default 3 months */
 	int features = 5;
 	int epoch = 500;
 	bool testMode = true;
 	bool openmp = false;
-	std::string savePrefix = std::string("./oops_");
+	std::string savePrefix = "./oops_";
 	std::string inputFile;
 	std::string setting = "";
 	
@@ -119,7 +118,7 @@ struct ArgParse {
 			} else if (std::string(argv[i]) == "-b") {
 				if (++i >= argc)	return false;
 				int temp = std::stoi(std::string(argv[i]));
-				batchSize = (temp < 64) ? batchSize : temp;
+				batchSize = (temp < 1) ? batchSize : temp;
 			} else if (std::string(argv[i]) == "-nt") {
 				testMode = false;
 			} else if (std::string(argv[i]) == "-s") {
@@ -168,7 +167,10 @@ struct Stock {
 	Stock* init() {
 		weekday.insert(weekday.end(), { 1, 2, 3, 4, 5 });
 		month.insert(month.end(), 5, month.back());
-		firstPredictIndex = static_cast<int>(history.size()) - (args.testMode ? PREDICTDAYS : 0);
+		const int&& historyLength = static_cast<int>(history.size());
+		firstPredictIndex = historyLength - (args.testMode ? PREDICTDAYS : 0);
+		if (historyLength < args.history)
+			return nullptr;
 		for (auto it = history.begin() + firstPredictIndex - 1; it != history.end(); ++it)
 			truePrice.push_back(std::lrint((*it)[TARGETINDEX]));
 		/* normalization */
@@ -278,8 +280,8 @@ public:
 	
 	/* the derivative of || Wx + b - y || ^ 2 wrt W is 2 * (Wx + b - y) * x.T */
 	void setGradient(Vec& g, Vec& x) {
-		const int&& tid = omp_get_thread_num();
-		std::transform(gradients[tid].begin(), gradients[tid].end(), std::begin(g), gradients[tid].begin(),
+		Mat& matref = gradients[omp_get_thread_num()];
+		std::transform(matref.begin(), matref.end(), std::begin(g), matref.begin(),
 			[&x] (Vec& a, double& gi) { return a + x * gi; });
 		return;
 	}
@@ -334,12 +336,16 @@ int main(int argc, char** argv) {
 	std::vector<std::pair<Stock*, int>> learningPair;
 	for (auto& p: stockMap) {
 		Stock* s = p.second.init();
+		if (s == nullptr) {
+			printf("Stock `%s' skipped\n", p.first.c_str());
+			continue;
+		}
 		/* use [t - args.history, t - 1] to predict [t] */;
 		for (int i = s->firstPredictIndex - 1; i >= args.history; --i)
 			learningPair.push_back(std::make_pair(s, i));
 	}
-	learningPair.shrink_to_fit();
 	const int&& learningSize = static_cast<int>(learningPair.size());
+	printf("LearningSize: %d\n", learningSize);
 	
 	const int learningCount = 3;
 	Element   stockEmbedding(Stock::idCount, args.dimension);
