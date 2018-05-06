@@ -73,7 +73,7 @@ def score( realDict, predDict):
 if __name__ == '__main__':
     model = []
     for i in range(5):
-        model.append(load_model("inin%d.h5"%(i)))
+        model.append(load_model("ininGG%d.h5"%(i)))
 
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
