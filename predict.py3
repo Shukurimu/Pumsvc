@@ -35,6 +35,7 @@ def preprocess( stockDict):
 def restore_preprocess( predDict, adjustCoefs):
     for id, predData in predDict.items():
         predDict[id] = predData * adjustCoefs[id][1] + adjustCoefs[id][0]
+        predDict[id] = np.around(predDict[id], decimals=2)
     return predDict
 
 def produce_pair( stockDict, days = 30):
@@ -44,19 +45,45 @@ def produce_pair( stockDict, days = 30):
         data = np.vstack(dateData.values())
         for i in range( data.shape[0]-days-tail-1):
             feature.append( data[i:i+days])
-            label.append( data[i+days])
+            label.append( data[i+days][3])
+    tmp = zip(feature, lebel)
+
     return np.array(feature), np.array(label)
 
+def calculateUpDown(l1, l2):
+    tmp = l1 - l2
+    return np.where(tmp == 0, 0, np.where(tmp > 0, 1, -1))
+
+def score( realDict, predDict):
+    score = 0.0
+    for id, predPrice in predDict.items():
+        data = np.array(list(realDict[id].values()))
+        realPrice = data[-5:,-2]
+        predPrice = predPrice[:,-2]
+        realUpDown = calculateUpDown(data[-5:,-2], data[-6:-1,-2])
+        upDown = calculateUpDown(predPrice, data[-6:-1,-2])
+           
+        diff = np.abs(realPrice - predPrice)
+        upDownDiff = (realUpDown == upDown)
+        tmpScore = (realPrice - diff) / realPrice * 0.5 + upDownDiff * 0.5
+        score += np.sum(tmpScore * [0.10, 0.15, 0.20, 0.25, 0.30])
+    print(score)
+
+
 if __name__ == '__main__':
-    model = load_model("inin.h5")
+    model = []
+    for i in range(5):
+        model.append(load_model("inin%d.h5"%(i)))
+
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180331/taetfp.csv")
     adjustStock, adjustCoefs = preprocess(fundAfter)
-    result = dict()
-    for id, dateDate in adjustStock.items():
-        data = list(dateDate.values())[-30:]
+
+    result = defaultdict(list)
+    for id, dateData in adjustStock.items():
+        data = list(dateData.values())[-35:-5]
+        data = np.array(data, ndmin=3)
         for i in range(5):
-            tmpResult = model.predict(np.array([data[-30:]]), batch_size=1)
-            data.append(tmpResult[0])
-        result[id] = data[-5:]
+            result[id].append(model[i].predict(data, batch_size=1)[0])
     predDict = restore_preprocess( result, adjustCoefs)
-    print(predDict)
+    score(fundAfter, predDict)
+    #"ETFid,	Mon_ud,	Mon_cprice,	Tue_ud,	Tue_cprice,	Wed_ud,	Wed_cprice,	Thu_ud,	Thu_cprice,	Fri_ud,	Fri_cprice"
