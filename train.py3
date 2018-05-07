@@ -4,6 +4,7 @@ import datetime
 import csv
 from collections import defaultdict
 from copy import deepcopy
+from random import shuffle
 from keras.models import Model
 from keras.layers import GRU, Dense, Activation, Input
 from keras import optimizers
@@ -81,9 +82,9 @@ def preprocess( stockDict):
     tmpStock = deepcopy(stockDict) 
     tmpCoef = {}
     for id, dateData in stockDict.items():
-        feature = np.array( list(dateData.values()))
-        means = np.mean( feature, axis = 0)
-        stds = np.std( feature, axis = 0)
+        feature = np.array(list(dateData.values()), dtype=np.float32)
+        means = np.mean(feature, axis = 0)
+        stds = np.std(feature, axis = 0)
         for date, feature in dateData.items():
             tmpStock[id][date] = (feature - means) / stds
         tmpCoef[id] = (means, stds)
@@ -95,7 +96,7 @@ def restore_preprocess( predDict, adjustCoefs):
     return predDict
 
 def produce_pair( stockDict, postpone, days = 30):
-    tail = 20
+    tail = 30
     feature, label = [], []
     for id, dateData in stockDict.items():
         data = np.vstack(dateData.values())
@@ -124,4 +125,4 @@ if __name__ == '__main__':
         model.compile(optimizer='rmsprop',
                 loss='mean_absolute_error')
         model.fit( feature, label, epochs=300, batch_size=32)
-        model.save("ininGG%d.h5"%(i))
+        model.save("ininII%d.h5"%(i))
