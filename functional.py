@@ -99,12 +99,12 @@ def produce_pair( stockDict, postpone, days = 30):
             label.append( data[i+days+postpone][3])
     return np.array(feature), np.array(label)
 
-def new_produce_pair( stockDict, postpone, days = 30):
+def new_produce_pair( stockDict, days = 30):
     tail = 30
     feature, label = [], []
     for id, dateData in stockDict.items():
         data = np.vstack(dateData.values())
         for i in range( data.shape[0]-days-tail-1):
-            feature.append( data[i:i+days])
-            label.append( data[i+days+postpone][3])
+            feature.append(data[i:i+days])
+            label.append(data[i+days:i+dats+6][3])
     return np.array(feature), np.array(label)

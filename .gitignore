@@ -39,7 +39,10 @@
 *.csv
 *.xlsx
 
+# Model, setting, data
 *.h5
 .vscode
 __pycache__
+TBrain_Round2_DataSet_*
+
 # End of https://www.gitignore.io/api/c++
