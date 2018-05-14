@@ -106,5 +106,5 @@ def new_produce_pair( stockDict, days = 30):
         data = np.vstack(dateData.values())
         for i in range( data.shape[0]-days-tail-1):
             feature.append(data[i:i+days])
-            label.append(data[i+days:i+dats+6][3])
+            label.append(list(map(lambda a: a[-2], data[i+days+1:i+days+6])))
     return np.array(feature), np.array(label)
