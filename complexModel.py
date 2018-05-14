@@ -8,8 +8,7 @@ from keras import optimizers, losses
 #stockBefore = parse_csv("TBrain_Round2_DataSet_20180331/tsharep.csv")
 #stockAfter = parse_csv("TBrain_Round2_DataSet_20180331/tasharep.csv")
 def create_model_arch():
-    gruDim = 1
-    
+    gruDim = 64
     inputs = Input(shape=(30, 5))
     
     gruTensor = GRU(5*gruDim)(inputs)
@@ -38,15 +37,16 @@ if __name__ == '__main__':
     if options.train:
         feature, label = new_produce_pair(adjustStock)
         model.compile(optimizer='rmsprop', loss='mean_squared_error')
-        model.fit( feature, label, epochs=1, batch_size=32)
+        model.fit( feature, label, epochs=5, batch_size=32)
         model.save_weights(modelWeightName)
 
     if options.validate or options.predict:
         result = {}
         model.load_weights(modelWeightName)
 
-        for val in [options.validate, options.predict*2]:
-            print(val)
+        for val in [options.validate*1, options.predict*2]:
+            if val <= 0:
+                continue
             for id, dateData in adjustStock.items():
                 data = list(dateData.values())
                 data = data[-35:-5] if val < 2 else data[-30:]
