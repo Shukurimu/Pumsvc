@@ -17,12 +17,13 @@ class GaussianNormalize(object):
                 tmp[id][date] = (feature - self.mean[id]) / self.std[id]
         return tmp
 
-    def denormalize(self, adjusted):
+    def denormalize(self, adjusted, dim=slice(5)):
         if not self.mean or not self.std:
             return adjusted
+        tmp = {}
         for id, data in adjusted.items():
-            adjusted[id] = data * self.std[id] + self.mean[id]
-        return adjusted
+            tmp[id] = data * self.std[id][dim] + self.mean[id][dim]
+        return tmp
 
 class MaxNormalize(object):
     def normalize(self, origin):
@@ -35,12 +36,13 @@ class MaxNormalize(object):
                 tmp[id][date] = feature / self.max[id]
         return tmp
 
-    def denormalize(self, adjusted):
+    def denormalize(self, adjusted, dim=slice(5)):
         if not self.max:
             return adjusted
+        tmp = {}
         for id, data in adjusted.items():
-            adjusted[id] = data * self.max[id]
-        return adjusted
+            tmp[id] = data * self.max[id][dim]
+        return tmp
 
 def parse_csv(filePath):
     temDict = defaultdict( lambda:defaultdict(lambda:list))
@@ -73,9 +75,9 @@ def write_csv(filePath, predDict):
             spamWriter.writerow(tmp)
 
 def calculatePriceUpDown(npArray):
-    price = npArray[-5:,-2]
-    upDown = np.around(npArray[-5:,-2] * 100) - np.around(npArray[-6:-1,-2] * 100)
-    return price, np.where(upDown == 0, 0, np.where(upDown > 0, 1, -1))
+    price = npArray[-6:,-2] if npArray.ndim == 2 else npArray[-6:]
+    upDown = np.around(price[-5:] * 100) - np.around(price[-6:-1] * 100)
+    return price[-5:], np.where(upDown == 0, 0, np.where(upDown > 0, 1, -1))
 
 def score(realDict, predDict):
     score = 0.0
