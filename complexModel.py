@@ -4,11 +4,11 @@ from keras.models import Model, load_model
 from keras.layers import GRU, Dense, Activation, Input, Lambda, Concatenate, Dropout
 from keras import optimizers, losses
 
-#fundBefore = parse_csv("TBrain_Round2_DataSet_20180331/tetfp.csv")
-#stockBefore = parse_csv("TBrain_Round2_DataSet_20180331/tsharep.csv")
-#stockAfter = parse_csv("TBrain_Round2_DataSet_20180331/tasharep.csv")
+#fundBefore = parse_csv("TBrain_Round2_DataSet_20180511/tetfp.csv")
+#stockBefore = parse_csv("TBrain_Round2_DataSet_20180511/tsharep.csv")
+#stockAfter = parse_csv("TBrain_Round2_DataSet_20180511/tasharep.csv")
 def create_model_arch():
-    gruDim = 64
+    gruDim = 1
     inputs = Input(shape=(30, 5))
     
     gruTensor = GRU(5*gruDim)(inputs)
@@ -16,7 +16,7 @@ def create_model_arch():
     for i in range(1, 6):
         tmp = Lambda(lambda x: x[:,:gruDim*i], output_shape=(gruDim*i,))(gruTensor)
         tmp = Dropout(0.5)(tmp) 
-        middle.append(Dense(1, activation='relu')(tmp))
+        middle.append(Dense(1, activation='linear')(tmp))
 
     outputs = Concatenate()(middle)
     return Model(inputs=inputs, outputs=outputs)
@@ -29,15 +29,23 @@ if __name__ == '__main__':
     (options, args) = optParser.parse_args()
 
     fundAfter = parse_csv("TBrain_Round2_DataSet_20180511/taetfp.csv")
-    adjust = MaxNormalize()
-    adjustStock = adjust.normalize(fundAfter)
+    adjust = GaussianNormalize()
+    adjustFund = adjust.normalize(fundAfter)
+
+    stockAfter = parse_csv("TBrain_Round2_DataSet_20180511/tasharep.csv")
+    adjust2 = GaussianNormalize()
+    adjustStock = adjust2.normalize(stockAfter)
+
     model = create_model_arch()
-    modelWeightName = "complexGRU.h5"
+    modelWeightName = "complexGRUGG.h5"
 
     if options.train:
-        feature, label = new_produce_pair(adjustStock)
+        featureS, labelS = new_produce_pair(adjustFund)
+        featureF, labelF = new_produce_pair(adjustStock)
+        feature = np.vstack((featureS, featureF))
+        label = np.vstack((labelS, labelF))
         model.compile(optimizer='rmsprop', loss='mean_squared_error')
-        model.fit( feature, label, epochs=5, batch_size=32)
+        model.fit( feature, label, epochs=1, batch_size=32)
         model.save_weights(modelWeightName)
 
     if options.validate or options.predict:
@@ -47,7 +55,7 @@ if __name__ == '__main__':
         for val in [options.validate*1, options.predict*2]:
             if val <= 0:
                 continue
-            for id, dateData in adjustStock.items():
+            for id, dateData in adjustFund.items():
                 data = list(dateData.values())
                 data = data[-35:-5] if val < 2 else data[-30:]
                 data = np.array(data, dtype=np.float32, ndmin=3)
