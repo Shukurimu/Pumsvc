@@ -89,6 +89,8 @@ def score(realDict, predDict):
         upDownDiff = (realUpDown == predUpDown)
         tmpScore = ((realPrice - diff) / realPrice + upDownDiff) * 0.5
         score += np.sum(tmpScore * [0.10, 0.15, 0.20, 0.25, 0.30])
+    print(upDownDiff*1)
+    print((realPrice - diff) / realPrice)
     print(score)
 
 def produce_pair( stockDict, postpone, days = 30):

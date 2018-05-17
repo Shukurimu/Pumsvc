@@ -7,9 +7,9 @@ from keras import optimizers, losses
 #fundBefore = parse_csv("TBrain_Round2_DataSet_20180511/tetfp.csv")
 #stockBefore = parse_csv("TBrain_Round2_DataSet_20180511/tsharep.csv")
 #stockAfter = parse_csv("TBrain_Round2_DataSet_20180511/tasharep.csv")
-def create_model_arch():
-    gruDim = 1
-    inputs = Input(shape=(30, 5))
+def create_model_arch(gruDim = 128, days = 30):
+    
+    inputs = Input(shape=(days, 5))
     
     gruTensor = GRU(5*gruDim)(inputs)
     middle = []
@@ -35,13 +35,16 @@ if __name__ == '__main__':
     stockAfter = parse_csv("TBrain_Round2_DataSet_20180511/tasharep.csv")
     adjust2 = GaussianNormalize()
     adjustStock = adjust2.normalize(stockAfter)
+    del stockAfter
 
-    model = create_model_arch()
+    days = 60
+    model = create_model_arch(days=days)
     modelWeightName = "complexGRUGG.h5"
 
     if options.train:
-        featureS, labelS = new_produce_pair(adjustFund)
-        featureF, labelF = new_produce_pair(adjustStock)
+        featureS, labelS = new_produce_pair(adjustFund, days=days)
+        featureF, labelF = new_produce_pair(adjustStock, days=days)
+        del adjustStock
         feature = np.vstack((featureS, featureF))
         label = np.vstack((labelS, labelF))
         model.compile(optimizer='rmsprop', loss='mean_squared_error')
@@ -57,7 +60,7 @@ if __name__ == '__main__':
                 continue
             for id, dateData in adjustFund.items():
                 data = list(dateData.values())
-                data = data[-35:-5] if val < 2 else data[-30:]
+                data = data[-days-5:-5] if val < 2 else data[-days:]
                 data = np.array(data, dtype=np.float32, ndmin=3)
                 result[id] = np.hstack((data[:,-1,-2], model.predict(data, batch_size=1)[0]))
             predDict = adjust.denormalize(result, dim=-2)
