@@ -15,7 +15,6 @@ def create_model_arch(gruDims = 32, days = 30):
     middle = []
     for i in range(1, 6):
         tmp = Lambda(lambda x: x[:,:gruDims*i], output_shape=(gruDims*i,))(gruTensor)
-        tmp = Dropout(0.5)(tmp) 
         middle.append(Dense(1, activation='linear')(tmp))
 
     outputs = Concatenate()(middle)
@@ -37,9 +36,9 @@ if __name__ == '__main__':
     adjustStock = adjust2.normalize(stockAfter)
     del stockAfter
 
-    days, gruDims, epochs = 30, 256, 20
+    days, gruDims, epochs = 30, 16, 100
     model = create_model_arch(gruDims=gruDims ,days=days)
-    modelWeightName = "complexGRUGGGG.h5"
+    modelWeightName = "cm_%d_%d.h5"%(gruDims, epochs)
 
     if options.train:
         #featureS, labelS = new_produce_pair(adjustFund, days=days)

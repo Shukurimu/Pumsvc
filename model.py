@@ -17,7 +17,7 @@ if __name__ == '__main__':
     optParser.add_option("-p", "--predict", action= "store_true", help="predict")
     (options, args) = optParser.parse_args()
 
-    fundAfter = parse_csv("TBrain_Round2_DataSet_20180511/taetfp.csv")
+    fundAfter = parse_csv("TBrain_Round2_DataSet_20180525/taetfp.csv")
     adjust = GaussianNormalize()
     adjustStock = adjust.normalize(fundAfter)
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         model = []    
         result = defaultdict(list)
         for i in range(5):
-            model.append(load_model("ininGG%d.h5"%(i)))
+            model.append(load_model("ininII%d.h5"%(i)))
 
         if options.validate:
             for id, dateData in adjustStock.items():
